@@ -238,5 +238,4 @@ Se encontrar problemas:
 
 **Desenvolvido para simplificar a configuração de ambientes de desenvolvimento Windows** 🎯
 
-
 > ✨ **Criado em:** 8 de ago. de 2025 às 21:22
