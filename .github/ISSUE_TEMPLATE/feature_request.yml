@@ -1,0 +1,36 @@
+name: Feature Request
+description: Sugira uma melhoria para o projeto.
+title: "feat: "
+labels:
+  - enhancement
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ## Aviso: repositório arquivado
+        Este projeto não está mais ativo e permanece público apenas para estudo.
+        Não há garantia de resposta, revisão ou implementação.
+
+  - type: input
+    id: problem
+    attributes:
+      label: Problema que você quer resolver
+      placeholder: Não consigo automatizar instalação em modo não interativo.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Solução proposta
+      description: Descreva comportamento esperado e fluxo de uso.
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternativas consideradas
+      description: Soluções alternativas avaliadas.
+  - type: textarea
+    id: context
+    attributes:
+      label: Contexto adicional

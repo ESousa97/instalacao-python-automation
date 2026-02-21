@@ -1,0 +1,35 @@
+# Internal reports
+BASELINE.md
+FINAL.md
+
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# Build / temp outputs
+dist/
+build/
+coverage/
+tmp/
+temp/
+*.tmp
+*.log
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# Node (if introduced later)
+node_modules/
+
+# IDE/editor
+.idea/
+.vscode/settings.json
+*.code-workspace
+
+# OS files
+.DS_Store
+Thumbs.db

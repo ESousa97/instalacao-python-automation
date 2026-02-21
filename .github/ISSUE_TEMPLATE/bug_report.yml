@@ -1,0 +1,58 @@
+name: Bug Report
+description: Relate um problema para ajudar a melhorar o projeto.
+title: "fix: "
+labels:
+  - bug
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ## Aviso: repositório arquivado
+        Este projeto não está mais ativo e permanece público apenas para estudo.
+        Não há garantia de resposta, revisão ou correção.
+
+        Obrigado por reportar. Preencha os campos abaixo para agilizar a análise.
+  - type: input
+    id: summary
+    attributes:
+      label: Resumo
+      description: Descrição curta do problema.
+      placeholder: Ao selecionar a opção 3, a instalação do Python não conclui.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Passos para reproduzir
+      description: Liste os passos de forma objetiva.
+      placeholder: |
+        1. Executar como administrador
+        2. Selecionar opção 3
+        3. Escolher Python 3.12
+        4. Observar erro
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Comportamento esperado
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Comportamento atual
+    validations:
+      required: true
+  - type: input
+    id: os
+    attributes:
+      label: Sistema operacional
+      placeholder: Windows 11 23H2
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs/Saída relevante
+      render: shell

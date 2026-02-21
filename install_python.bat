@@ -1,53 +1,63 @@
 @echo off
-setlocal EnableDelayedExpansion
+setlocal EnableExtensions EnableDelayedExpansion
 chcp 65001 >nul
+
+set "SCRIPT_VERSION=2.0.0"
+set "DEFAULT_TIMEOUT_SECONDS=1800"
+set "STATUS_TIMEOUT_SECONDS=%DEFAULT_TIMEOUT_SECONDS%"
+
+if defined INSTALL_TIMEOUT_SECONDS (
+  set /a STATUS_TIMEOUT_SECONDS=INSTALL_TIMEOUT_SECONDS 2>nul
+  if !STATUS_TIMEOUT_SECONDS! LEQ 0 set "STATUS_TIMEOUT_SECONDS=%DEFAULT_TIMEOUT_SECONDS%"
+)
 
 :main_loop
 cls
 echo ========================================
-echo  INSTALADOR AUTOMÁTICO - JANELA IMORTAL
+echo  INSTALADOR AUTOMATICO - JANELA IMORTAL
 echo ========================================
-echo  Esta janela NUNCA vai fechar automaticamente!
+echo  Versao: %SCRIPT_VERSION%
+echo  Esta janela nao fecha automaticamente.
 echo ========================================
 echo.
 
-REM Verificar se está executando como administrador
-net session >nul 2>&1
-if %errorLevel% neq 0 (
-    echo [ERRO] Este script precisa ser executado como Administrador!
-    echo        Clique com o botão direito no script e selecione "Executar como administrador"
-    echo.
-    pause
-    goto :main_loop
-)
+call :ensure_admin
+if errorlevel 1 goto :main_loop
 
 echo MENU PRINCIPAL:
 echo.
 echo 1. Instalar App Installer (winget)
-echo 2. Instalar PowerShell 7.5
+echo 2. Instalar PowerShell 7
 echo 3. Instalar Python
 echo 4. Instalar TUDO (sequencial)
-echo 5. Verificar status das instalações (Nao implementado)
+echo 5. Verificar status das instalacoes
 echo 6. Sair
 echo.
+choice /c 123456 /n /m "Digite sua escolha (1-6): "
+if errorlevel 6 goto :exit_script
+if errorlevel 5 call :check_status & goto :return_menu
+if errorlevel 4 call :install_all & goto :return_menu
+if errorlevel 3 call :install_python & goto :return_menu
+if errorlevel 2 call :install_powershell & goto :return_menu
+if errorlevel 1 call :install_app_installer & goto :return_menu
 
-set /p "choice=Digite sua escolha (1-6): "
-
-if "%choice%"=="1" call :install_app_installer
-if "%choice%"=="2" call :install_powershell
-if "%choice%"=="3" call :install_python
-if "%choice%"=="4" call :install_all
-if "%choice%"=="5" call :check_status
-if "%choice%"=="6" goto :exit_script
-
+:return_menu
 echo.
 echo Pressione qualquer tecla para voltar ao menu principal...
 pause >nul
 goto :main_loop
 
-REM ==========================================
-REM FUNÇÃO: Instalar App Installer
-REM ==========================================
+:ensure_admin
+net session >nul 2>&1
+if %errorLevel% neq 0 (
+  echo [ERRO] Este script precisa ser executado como Administrador.
+  echo        Clique com o botao direito no arquivo e selecione "Executar como administrador".
+  echo.
+  pause
+  exit /b 1
+)
+exit /b 0
+
 :install_app_installer
 echo.
 echo ========================================
@@ -57,91 +67,79 @@ echo.
 
 winget --version >nul 2>&1
 if %errorLevel% equ 0 (
-    echo [OK] App Installer já está instalado!
-    goto :eof
+  echo [OK] App Installer ja esta instalado.
+  goto :eof
 )
 
+set "status_file=%TEMP%\winget_status_%RANDOM%.txt"
+set "task_script=%TEMP%\install_winget_%RANDOM%.bat"
+
+(
+  echo @echo off
+  echo echo Instalando App Installer...
+  echo powershell -NoProfile -Command "try { Invoke-WebRequest -Uri 'https://github.com/microsoft/winget-cli/releases/latest/download/Microsoft.DesktopAppInstaller_8wekyb3d8bbwe.msixbundle' -OutFile '$env:TEMP\winget.msixbundle'; Add-AppxPackage '$env:TEMP\winget.msixbundle'; Set-Content -Path '%status_file%' -Value 'OK' } catch { Set-Content -Path '%status_file%' -Value 'ERRO' }"
+  echo pause
+) > "%task_script%"
+
 echo [INFO] Abrindo janela para instalar App Installer...
+start "Instalacao App Installer" "%task_script%"
 
-REM Criar script simples
-echo @echo off > "%TEMP%\install_winget.bat"
-echo echo Instalando App Installer... >> "%TEMP%\install_winget.bat"
-echo powershell -Command "try { Invoke-WebRequest -Uri 'https://github.com/microsoft/winget-cli/releases/latest/download/Microsoft.DesktopAppInstaller_8wekyb3d8bbwe.msixbundle' -OutFile '$env:TEMP\winget.msixbundle'; Add-AppxPackage '$env:TEMP\winget.msixbundle'; echo 'OK' > '$env:TEMP\winget_status.txt' } catch { echo 'ERRO' > '$env:TEMP\winget_status.txt' }" >> "%TEMP%\install_winget.bat"
-echo pause >> "%TEMP%\install_winget.bat"
-
-start "Instalação App Installer" "%TEMP%\install_winget.bat"
-
-echo [AGUARDANDO] Instalação em andamento na nova janela...
-
-:wait_winget
-timeout /t 3 >nul
-if exist "%TEMP%\winget_status.txt" (
-    set /p status=<"%TEMP%\winget_status.txt"
-    del "%TEMP%\winget_status.txt" 2>nul
-    del "%TEMP%\install_winget.bat" 2>nul
-    if "!status!"=="OK" (
-        echo [OK] App Installer instalado com sucesso!
-    ) else (
-        echo [ERRO] Falha na instalação do App Installer
-    )
+call :wait_for_status "%status_file%" "App Installer"
+del "%task_script%" 2>nul
+if /I "!last_status!"=="OK" (
+  echo [OK] App Installer instalado com sucesso.
 ) else (
-    goto :wait_winget
+  echo [ERRO] Falha na instalacao do App Installer.
 )
 goto :eof
 
-REM ==========================================
-REM FUNÇÃO: Instalar PowerShell 7.5
-REM ==========================================
 :install_powershell
 echo.
 echo ========================================
-echo  INSTALANDO POWERSHELL 7.5
+echo  INSTALANDO POWERSHELL 7
 echo ========================================
 echo.
 
-pwsh -Command "exit 0" >nul 2>&1
+where pwsh >nul 2>&1
 if %errorLevel% equ 0 (
-    echo [OK] PowerShell 7.5 já está instalado!
-    goto :eof
+  echo [OK] PowerShell 7 ja esta instalado.
+  goto :eof
 )
 
-echo [INFO] Abrindo janela para instalar PowerShell 7.5...
+winget --version >nul 2>&1
+if %errorLevel% neq 0 (
+  echo [INFO] winget nao encontrado. Iniciando instalacao do App Installer primeiro...
+  call :install_app_installer
+)
 
-REM Criar script simples
-echo @echo off > "%TEMP%\install_ps7.bat"
-echo echo Instalando PowerShell 7.5... >> "%TEMP%\install_ps7.bat"
-echo winget install Microsoft.PowerShell --accept-package-agreements --accept-source-agreements --silent >> "%TEMP%\install_ps7.bat"
-echo if %%errorLevel%% equ 0 ( >> "%TEMP%\install_ps7.bat"
-echo     echo OK ^> "%TEMP%\ps7_status.txt" >> "%TEMP%\install_ps7.bat"
-echo ) else ( >> "%TEMP%\install_ps7.bat"
-echo     echo ERRO ^> "%TEMP%\ps7_status.txt" >> "%TEMP%\install_ps7.bat"
-echo ) >> "%TEMP%\install_ps7.bat"
-echo pause >> "%TEMP%\install_ps7.bat"
+set "status_file=%TEMP%\ps7_status_%RANDOM%.txt"
+set "task_script=%TEMP%\install_ps7_%RANDOM%.bat"
 
-start "Instalação PowerShell 7.5" "%TEMP%\install_ps7.bat"
+(
+  echo @echo off
+  echo echo Instalando PowerShell 7...
+  echo winget install Microsoft.PowerShell --accept-package-agreements --accept-source-agreements --silent
+  echo if %%errorlevel%% equ 0 ^(
+  echo   echo OK ^> "%status_file%"
+  echo ^) else ^(
+  echo   echo ERRO ^> "%status_file%"
+  echo ^)
+  echo pause
+) > "%task_script%"
 
-echo [AGUARDANDO] Instalação em andamento na nova janela...
+echo [INFO] Abrindo janela para instalar PowerShell 7...
+start "Instalacao PowerShell 7" "%task_script%"
 
-:wait_ps7
-timeout /t 3 >nul
-if exist "%TEMP%\ps7_status.txt" (
-    set /p status=<"%TEMP%\ps7_status.txt"
-    del "%TEMP%\ps7_status.txt" 2>nul
-    del "%TEMP%\install_ps7.bat" 2>nul
-    if "!status!"=="OK" (
-        echo [OK] PowerShell 7.5 instalado com sucesso!
-        echo [INFO] Reinicie o terminal para usar PowerShell 7.5
-    ) else (
-        echo [ERRO] Falha na instalação do PowerShell 7.5
-    )
+call :wait_for_status "%status_file%" "PowerShell 7"
+del "%task_script%" 2>nul
+if /I "!last_status!"=="OK" (
+  echo [OK] PowerShell 7 instalado com sucesso.
+  echo [INFO] Reinicie o terminal para atualizar o PATH se necessario.
 ) else (
-    goto :wait_ps7
+  echo [ERRO] Falha na instalacao do PowerShell 7.
 )
 goto :eof
 
-REM ==========================================
-REM FUNÇÃO: Instalar Python
-REM ==========================================
 :install_python
 echo.
 echo ========================================
@@ -149,136 +147,137 @@ echo  INSTALANDO PYTHON
 echo ========================================
 echo.
 
+winget --version >nul 2>&1
+if %errorLevel% neq 0 (
+  echo [INFO] winget nao encontrado. Iniciando instalacao do App Installer primeiro...
+  call :install_app_installer
+)
+
+set "status_file=%TEMP%\python_status_%RANDOM%.txt"
+set "ps_script=%TEMP%\install_python_%RANDOM%.ps1"
+
+echo Write-Host "========================================" > "%ps_script%"
+echo Write-Host " INSTALADOR DE PYTHON" >> "%ps_script%"
+echo Write-Host "========================================" >> "%ps_script%"
+echo Write-Host "" >> "%ps_script%"
+echo Write-Host "Versoes disponiveis:" >> "%ps_script%"
+echo Write-Host "1. Python 3.12" >> "%ps_script%"
+echo Write-Host "2. Python 3.11" >> "%ps_script%"
+echo Write-Host "3. Python 3.10" >> "%ps_script%"
+echo Write-Host "" >> "%ps_script%"
+echo do { >> "%ps_script%"
+echo   $choice = Read-Host "Digite o numero (1-3)" >> "%ps_script%"
+echo } while ($choice -notmatch "^[1-3]$") >> "%ps_script%"
+echo $versions = @("Python.Python.3.12", "Python.Python.3.11", "Python.Python.3.10") >> "%ps_script%"
+echo $selected = $versions[[int]$choice - 1] >> "%ps_script%"
+echo Write-Host "Instalando $selected..." >> "%ps_script%"
+echo try { >> "%ps_script%"
+echo   winget install $selected --accept-package-agreements --accept-source-agreements --silent >> "%ps_script%"
+echo   if ($LASTEXITCODE -eq 0) { >> "%ps_script%"
+echo     Set-Content -Path "%status_file%" -Value "OK" >> "%ps_script%"
+echo     Write-Host "Python instalado com sucesso!" >> "%ps_script%"
+echo   } else { >> "%ps_script%"
+echo     Set-Content -Path "%status_file%" -Value "ERRO" >> "%ps_script%"
+echo     Write-Host "Falha na instalacao do Python." >> "%ps_script%"
+echo   } >> "%ps_script%"
+echo } catch { >> "%ps_script%"
+echo   Set-Content -Path "%status_file%" -Value "ERRO" >> "%ps_script%"
+echo   Write-Host "Erro: $($_.Exception.Message)" >> "%ps_script%"
+echo } >> "%ps_script%"
+echo Read-Host "Pressione Enter para fechar" >> "%ps_script%"
+
 echo [INFO] Abrindo janela para escolher e instalar Python...
+start "Instalacao Python" powershell -NoProfile -ExecutionPolicy Bypass -File "%ps_script%"
 
-REM Criar script PowerShell para Python
-echo Write-Host "========================================" > "%TEMP%\install_python.ps1"
-echo Write-Host " INSTALADOR DE PYTHON" >> "%TEMP%\install_python.ps1"
-echo Write-Host "========================================" >> "%TEMP%\install_python.ps1"
-echo Write-Host "" >> "%TEMP%\install_python.ps1"
-echo Write-Host "Versões disponíveis:" >> "%TEMP%\install_python.ps1"
-echo Write-Host "1. Python 3.12" >> "%TEMP%\install_python.ps1"
-echo Write-Host "2. Python 3.11" >> "%TEMP%\install_python.ps1"
-echo Write-Host "3. Python 3.10" >> "%TEMP%\install_python.ps1"
-echo Write-Host "" >> "%TEMP%\install_python.ps1"
-echo do { >> "%TEMP%\install_python.ps1"
-echo     $choice = Read-Host "Digite o número (1-3)" >> "%TEMP%\install_python.ps1"
-echo } while ($choice -notmatch "^[1-3]$") >> "%TEMP%\install_python.ps1"
-echo $versions = @("Python.Python.3.12", "Python.Python.3.11", "Python.Python.3.10") >> "%TEMP%\install_python.ps1"
-echo $selected = $versions[[int]$choice - 1] >> "%TEMP%\install_python.ps1"
-echo Write-Host "Instalando $selected..." >> "%TEMP%\install_python.ps1"
-echo try { >> "%TEMP%\install_python.ps1"
-echo     winget install $selected --accept-package-agreements --accept-source-agreements --silent >> "%TEMP%\install_python.ps1"
-echo     if ($LASTEXITCODE -eq 0) { >> "%TEMP%\install_python.ps1"
-echo         "OK" ^| Out-File -FilePath "$env:TEMP\python_status.txt" >> "%TEMP%\install_python.ps1"
-echo         Write-Host "Python instalado com sucesso!" >> "%TEMP%\install_python.ps1"
-echo     } else { >> "%TEMP%\install_python.ps1"
-echo         "ERRO" ^| Out-File -FilePath "$env:TEMP\python_status.txt" >> "%TEMP%\install_python.ps1"
-echo         Write-Host "Erro na instalação" >> "%TEMP%\install_python.ps1"
-echo     } >> "%TEMP%\install_python.ps1"
-echo } catch { >> "%TEMP%\install_python.ps1"
-echo     "ERRO" ^| Out-File -FilePath "$env:TEMP\python_status.txt" >> "%TEMP%\install_python.ps1"
-echo     Write-Host "Erro: $_" >> "%TEMP%\install_python.ps1"
-echo } >> "%TEMP%\install_python.ps1"
-echo Read-Host "Pressione Enter para fechar" >> "%TEMP%\install_python.ps1"
-
-REM Criar script BAT que chama o PowerShell
-echo @echo off > "%TEMP%\install_python.bat"
-echo powershell -ExecutionPolicy Bypass -File "%TEMP%\install_python.ps1" >> "%TEMP%\install_python.bat"
-
-start "Instalação Python" "%TEMP%\install_python.bat"
-
-echo [AGUARDANDO] Escolha e instalação em andamento na nova janela...
-
-:wait_python
-timeout /t 3 >nul
-if exist "%TEMP%\python_status.txt" (
-    set /p status=<"%TEMP%\python_status.txt"
-    del "%TEMP%\python_status.txt" 2>nul
-    del "%TEMP%\install_python.ps1" 2>nul
-    del "%TEMP%\install_python.bat" 2>nul
-    if "!status!"=="OK" (
-        echo [OK] Python instalado com sucesso!
-    ) else (
-        echo [ERRO] Falha na instalação do Python
-    )
+call :wait_for_status "%status_file%" "Python"
+del "%ps_script%" 2>nul
+if /I "!last_status!"=="OK" (
+  echo [OK] Python instalado com sucesso.
 ) else (
-    goto :wait_python
+  echo [ERRO] Falha na instalacao do Python.
 )
 goto :eof
 
-REM ==========================================
-REM FUNÇÃO: Instalar tudo sequencialmente
-REM ==========================================
 :install_all
 echo.
 echo ========================================
-echo  INSTALAÇÃO COMPLETA - SEQUENCIAL
+echo  INSTALACAO COMPLETA - SEQUENCIAL
 echo ========================================
 echo.
-
 echo [1/3] Instalando App Installer...
 call :install_app_installer
-
 echo.
-echo [2/3] Instalando PowerShell 7.5...
+echo [2/3] Instalando PowerShell 7...
 call :install_powershell
-
 echo.
 echo [3/3] Instalando Python...
 call :install_python
-
 echo.
-echo [OK] Processo completo finalizado!
+echo [OK] Processo completo finalizado.
 goto :eof
 
-REM ==========================================
-REM FUNÇÃO: Verificar status
-REM ==========================================
 :check_status
 echo.
 echo ========================================
-echo  STATUS DAS INSTALAÇÕES
+echo  STATUS DAS INSTALACOES
 echo ========================================
 echo.
 
-REM Verificar winget
 winget --version >nul 2>&1
 if %errorLevel% equ 0 (
-    echo [OK] App Installer (winget): Instalado
+  for /f "delims=" %%v in ('winget --version 2^>^&1') do echo [OK] App Installer ^(winget^): %%v
 ) else (
-    echo [X] App Installer (winget): NÃO instalado
+  echo [X] App Installer ^(winget^): NAO instalado
 )
 
-REM Verificar PowerShell 7
-pwsh -Command "exit 0" >nul 2>&1
+where pwsh >nul 2>&1
 if %errorLevel% equ 0 (
-    echo [OK] PowerShell 7.5: Instalado
+  for /f "delims=" %%v in ('pwsh --version 2^>^&1') do echo [OK] PowerShell: %%v
 ) else (
-    echo [X] PowerShell 7.5: NÃO instalado
+  echo [X] PowerShell 7: NAO instalado
 )
 
-REM Verificar Python
-python --version >nul 2>&1
+py --version >nul 2>&1
 if %errorLevel% equ 0 (
+  for /f "delims=" %%v in ('py --version 2^>^&1') do echo [OK] Python: %%v
+) else (
+  python --version >nul 2>&1
+  if %errorLevel% equ 0 (
     for /f "delims=" %%v in ('python --version 2^>^&1') do echo [OK] Python: %%v
-) else (
-    echo [X] Python: NÃO encontrado
+  ) else (
+    echo [X] Python: NAO encontrado
+  )
 )
-
-echo.
 goto :eof
 
-REM ==========================================
-REM SAÍDA CONTROLADA
-REM ==========================================
+:wait_for_status
+set "status_path=%~1"
+set "task_label=%~2"
+set "last_status="
+set /a elapsed=0
+
+:wait_loop
+if exist "%status_path%" (
+  set /p "last_status="<"%status_path%"
+  del "%status_path%" 2>nul
+  goto :eof
+)
+timeout /t 2 >nul
+set /a elapsed+=2
+if !elapsed! geq %STATUS_TIMEOUT_SECONDS% (
+  set "last_status=TIMEOUT"
+  echo [ERRO] Timeout aguardando conclusao da tarefa: !task_label!.
+  goto :eof
+)
+goto :wait_loop
+
 :exit_script
 echo.
 echo ========================================
 echo  SAINDO DO INSTALADOR
 echo ========================================
 echo.
-echo Obrigado por usar o instalador automático!
+echo Obrigado por usar o instalador automatico.
 echo.
 pause
 exit /b 0

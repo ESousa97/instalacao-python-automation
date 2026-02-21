@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Projeto arquivado (somente estudo)
+    url: https://github.com/enoquesousa/instalacao-python-automation/blob/main/CONTRIBUTING.md#status-do-reposit%C3%B3rio
+    about: Repositório desativado para manutenção ativa; sem garantia de resposta, revisão ou correção.
+  - name: Security report (private)
+    url: https://github.com/enoquesousa
+    about: Para vulnerabilidades, siga a política descrita em SECURITY.md.
